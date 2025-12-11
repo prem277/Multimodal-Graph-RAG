@@ -1,0 +1,36 @@
+# ---- Core Python Libraries ----
+numpy
+pandas
+Pillow
+python-docx
+PyPDF2
+openpyxl
+
+# ---- LangChain + Ollama ----
+langchain
+langchain-community
+langchain-core
+ollama
+
+# ---- Embeddings & LLM ----
+sentence-transformers   # (LangChain sometimes needs it)
+transformers            # optional but helpful
+
+# ---- JanusGraph / Gremlin ----
+gremlinpython
+
+# ---- Vector operations ----
+scikit-learn            # for safe similarity utils (optional)
+
+# ---- FastAPI / server (if you later add UI) ----
+fastapi
+uvicorn
+
+# ---- Optional Utilities ----
+tqdm
+python-dotenv
+
+python-pptx 
+beautifulsoup4 
+pyyaml 
+ebooklib

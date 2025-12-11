@@ -1,0 +1,9 @@
+name,equatorial_diameter,mass,semi_major_axis,orbital_period,inclination_to_suns_equator,orbital_eccentricity,rotation_period,confirmed_moons,axial_tilt,rings,atmosphere
+Mercury,0.382,0.06,0.39,0.24,3.38,0.206,58.64,0,0.04,no,minimal
+Venus,0.949,0.82,0.72,0.62,3.86,0.007,−243.02,0,177.36,no,"CO2, N2"
+Earth,1,1,1,1,7.25,0.017,1,1,23.44,no,"N2, O2, Ar"
+Mars,0.532,0.11,1.52,1.88,5.65,0.093,1.03,2,25.19,no,"CO2, N2, Ar"
+Jupiter,11.209,317.8,5.2,11.86,6.09,0.048,0.41,79,3.13,yes,"H2, He"
+Saturn,9.449,95.2,9.54,29.46,5.51,0.054,0.43,82,26.73,yes,"H2, He"
+Uranus,4.007,14.6,19.22,84.01,6.48,0.047,−0.72,27,97.77,yes,"H2, He, CH4"
+Neptune,3.883,17.2,30.06,164.8,6.43,0.009,0.67,14,28.32,yes,"H2, He, CH4"
