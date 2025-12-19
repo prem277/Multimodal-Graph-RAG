@@ -1,106 +1,106 @@
 import os
-from typing import Optional, Tuple
-from threading import Lock
+from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
+from query_data import answer_question
 
-import gradio as gr
+app = Flask(__name__)
+CORS(app)
 
-from query_data import get_basic_qa_chain
+# ---------------- Chat history ----------------
+USER_SESSIONS = {}
 
+def get_session_history(session_id):
+    if session_id not in USER_SESSIONS:
+        USER_SESSIONS[session_id] = ""
+    return USER_SESSIONS[session_id]
 
-def set_openai_api_key(api_key: str):
-    """Set the api key and return chain.
-    If no api_key, then None is returned.
-    """
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
-        chain = get_basic_qa_chain()
-        os.environ["OPENAI_API_KEY"] = ""
-        return chain
+def update_session_history(session_id, user_q, bot_ans):
+    USER_SESSIONS[session_id] += f"Question: {user_q}\nAssistant: {bot_ans}\n\n"
 
+# ---------------- Frontend ----------------
+HTML_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RAG Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px;}
+        #chat-box { width: 100%; height: 400px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; background:white; }
+        #user-input { width: 80%; padding: 10px; }
+        #send-btn { padding: 10px; }
+        .user { color: blue; }
+        .bot { color: green; }
+        .message { margin:5px 0; }
+    </style>
+</head>
+<body>
+    <h2>RAG Chat Interface</h2>
+    <div id="chat-box"></div>
+    <input type="text" id="user-input" placeholder="Ask your question..." />
+    <button id="send-btn">Send</button>
 
-class ChatWrapper:
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const input = document.getElementById('user-input');
+        const button = document.getElementById('send-btn');
+        let session_id = 'default';
 
-    def __init__(self):
-        self.lock = Lock()
+        function appendMessage(sender, text){
+            const div = document.createElement('div');
+            div.className = 'message ' + sender;
+            div.innerHTML = '<b>' + sender + ':</b> ' + text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
-    def __call__(
-        self, api_key: str, inp: str, history: Optional[Tuple[str, str]], chain
-    ):
-        """Execute the chat functionality."""
-        self.lock.acquire()
-        try:
-            history = history or []
-            # If chain is None, that is because no API key was provided.
-            if chain is None:
-                history.append((inp, "Please paste your OpenAI key to use"))
-                return history, history
-            # Set OpenAI key
-            import openai
-            openai.api_key = api_key
-            # Run chain and append input.
-            output = chain({"question": inp})["answer"]
-            history.append((inp, output))
-        except Exception as e:
-            raise e
-        finally:
-            self.lock.release()
-        return history, history
+        button.onclick = async () => {
+            const q = input.value.trim();
+            if(!q) return;
+            appendMessage('Question', q);
+            input.value = '';
 
+            const resp = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: q, session_id })
+            });
+            const data = await resp.json();
+            appendMessage('Assistant', data.answer || '[No answer]');
+        };
 
-chat = ChatWrapper()
+        input.addEventListener("keypress", function(e) {
+            if(e.key === 'Enter'){ button.click(); }
+        });
+    </script>
+</body>
+</html>
+"""
 
-block = gr.Blocks(css=".gradio-container {background-color: lightgray}")
+@app.route("/", methods=["GET"])
+def index():
+    return render_template_string(HTML_PAGE)
 
-with block:
-    with gr.Row():
-        gr.Markdown(
-            "<h3><center>Chat-Your-Data (State-of-the-Union)</center></h3>")
+# ---------------- API ----------------
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    question = data.get("question")
+    session_id = data.get("session_id", "default")
 
-        openai_api_key_textbox = gr.Textbox(
-            placeholder="Paste your OpenAI API key (sk-...)",
-            show_label=False,
-            lines=1,
-            type="password",
-        )
+    if not question:
+        return jsonify({"error": "Missing question"}), 400
 
-    chatbot = gr.Chatbot()
+    history = get_session_history(session_id)
 
-    with gr.Row():
-        message = gr.Textbox(
-            label="What's your question?",
-            placeholder="Ask questions about the most recent state of the union",
-            lines=1,
-        )
-        submit = gr.Button(value="Send", variant="secondary").style(
-            full_width=False)
+    try:
+        answer = answer_question(question, history)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    gr.Examples(
-        examples=[
-            "What did the president say about Ketanji Brown Jackson?",
-            "Did he mention Stephen Breyer?",
-            "What was his stance on Ukraine?",
-        ],
-        inputs=message,
-    )
+    update_session_history(session_id, question, answer)
 
-    gr.HTML("Demo application of a LangChain chain.")
+    return jsonify({"answer": answer, "session_id": session_id})
 
-    gr.HTML(
-        "<center>Powered by <a href='https://github.com/hwchase17/langchain'>LangChain 🦜️🔗</a></center>"
-    )
-
-    state = gr.State()
-    agent_state = gr.State()
-
-    submit.click(chat, inputs=[openai_api_key_textbox, message,
-                 state, agent_state], outputs=[chatbot, state])
-    message.submit(chat, inputs=[
-                   openai_api_key_textbox, message, state, agent_state], outputs=[chatbot, state])
-
-    openai_api_key_textbox.change(
-        set_openai_api_key,
-        inputs=[openai_api_key_textbox],
-        outputs=[agent_state],
-    )
-
-block.launch(debug=True)
+# ---------------- Run ----------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

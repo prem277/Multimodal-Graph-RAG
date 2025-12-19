@@ -1,3 +1,4 @@
+# cli_app.py
 from query_data import chain_options
 from rich.console import Console
 from rich.prompt import Prompt

@@ -34,3 +34,5 @@ python-pptx
 beautifulsoup4 
 pyyaml 
 ebooklib
+flask
+flask-cors
